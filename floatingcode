@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Floating Code — Lighter & Princess</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; overflow: hidden; width: 100vw; height: 100vh; }
+  canvas { display: block; }
+  #info {
+    position: fixed; bottom: 18px; right: 22px;
+    color: rgba(0,200,255,0.4); font: 12px monospace;
+    letter-spacing: 1px; user-select: none;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="info">PRESS F11 FOR FULLSCREEN</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+const KATAKANA = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';
+const BINARY   = '01';
+const HEX      = '0123456789ABCDEF';
+const CODE     = [
+  'if(x>0){','return[];','int i=0;','while(1)',
+  'def run():','import os','null;ptr*','0xDEAD',
+  'fork();','chmod 777','sudo rm','ssh root@',
+  'GET /index','POST /api','SELECT *','DROP TABLE',
+  'malloc()','free(ptr)','stack[i++]','catch(e){}',
+  'xor eax','mov ebx,0','jmp 0x4c','push rbp',
+  '>>/dev/null','curl -s','netstat','ping -t',
+];
+
+const COL_COLORS  = ['#00cfff','#0080ff','#00ffee','#4db8ff','#99e6ff'];
+const SNIP_COLORS = ['#00cfff','#0088ff','#00ffee','#ffffff','#66ccff'];
+
+const FS = 16;
+let W, H, numCols;
+let drops, dropLen, dropColor, dropSpeed, dropTimer;
+let snippets = [];
+
+function randChar(){
+  const r = Math.random();
+  if(r<0.4) return KATAKANA[Math.random()*KATAKANA.length|0];
+  if(r<0.65) return BINARY[Math.random()*BINARY.length|0];
+  return HEX[Math.random()*HEX.length|0];
+}
+
+function makeSnippet(){
+  const text = CODE[Math.random()*CODE.length|0];
+  const fromLeft = Math.random()<0.5;
+  return {
+    text,
+    row: 30 + Math.random()*(H-60),
+    x: fromLeft ? -(text.length*9+10) : W+10,
+    dx: fromLeft ? 0.5+Math.random()*1.2 : -(0.5+Math.random()*1.2),
+    color: SNIP_COLORS[Math.random()*SNIP_COLORS.length|0],
+    alpha: 0.6+Math.random()*0.4
+  };
+}
+
+function init(){
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  numCols   = Math.floor(W/FS);
+  drops     = Array.from({length:numCols},()=> (Math.random()*-50)|0);
+  dropLen   = Array.from({length:numCols},()=> 8+(Math.random()*22|0));
+  dropColor = Array.from({length:numCols},()=> COL_COLORS[Math.random()*COL_COLORS.length|0]);
+  dropSpeed = Array.from({length:numCols},()=> 0.3+Math.random()*0.8);
+  dropTimer = new Array(numCols).fill(0);
+  const ns  = Math.max(8, W/90|0);
+  snippets  = Array.from({length:ns}, makeSnippet);
+}
+
+let last = 0;
+function draw(ts){
+  const dt = ts - last; last = ts;
+
+  ctx.fillStyle = 'rgba(0,0,0,0.17)';
+  ctx.fillRect(0,0,W,H);
+
+  ctx.font = FS+'px monospace';
+
+  for(let i=0;i<numCols;i++){
+    dropTimer[i] += dt * dropSpeed[i];
+    if(dropTimer[i] < 38) continue;
+    dropTimer[i] = 0;
+
+    const x     = i*FS;
+    const headY = drops[i]*FS;
+
+    for(let j=0;j<dropLen[i];j++){
+      const y = headY - j*FS;
+      if(y<-FS||y>H+FS) continue;
+      if(j===0){
+        ctx.fillStyle='#ffffff'; ctx.globalAlpha=1;
+      } else {
+        const fade = 1 - j/dropLen[i];
+        ctx.fillStyle=dropColor[i];
+        ctx.globalAlpha=fade*0.85;
+      }
+      ctx.fillText(randChar(), x, y);
+    }
+
+    drops[i]++;
+    if((drops[i]-dropLen[i])*FS > H){
+      drops[i]     = (Math.random()*-25)|0;
+      dropLen[i]   = 8+(Math.random()*22|0);
+      dropColor[i] = COL_COLORS[Math.random()*COL_COLORS.length|0];
+      dropSpeed[i] = 0.3+Math.random()*0.8;
+    }
+  }
+
+  ctx.globalAlpha=1;
+  ctx.font='13px monospace';
+  for(let s of snippets){
+    s.x += s.dx;
+    ctx.globalAlpha = s.alpha;
+    ctx.fillStyle   = s.color;
+    ctx.fillText(s.text, s.x, s.row);
+    if(s.x > W+60 || s.x < -(s.text.length*9+20)){
+      Object.assign(s, makeSnippet());
+    }
+  }
+
+  ctx.globalAlpha=1;
+  requestAnimationFrame(draw);
+}
+
+window.addEventListener('resize', init);
+init();
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
